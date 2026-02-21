@@ -1,13 +1,107 @@
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { TNavigationScreenProps } from '../AppRoutes';
 import { Theme } from '../shared/themes/Theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 
 export const Home = () => {
   const navigation = useNavigation<TNavigationScreenProps>();
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [step, setStep] = useState<1|2|3|4>(1);
+  const [currentStatus, setCurrentStatus] = useState<'focus'|'shortBreak'|'longBreak'>('focus');
+
+  const [currentCircleTime, setCurrentCircleTime] = useState(0.1*60);
+  const [currentShortBreakTime, setCurrentShortBreakTime] = useState(0.05*60);
+  const [currentLongBreakTime, setCurrentLongBreakTime] = useState(0.07*60);
+  const [counterCircleTime, setCounterCircleTime] = useState(currentCircleTime);
+
+  useFocusEffect(
+    useCallback(() => {
+      Promise
+        .all([
+          AsyncStorage.getItem('FOCUS_PERIOD'),
+          AsyncStorage.getItem('SHORT_BREAK_PERIOD'),
+          AsyncStorage.getItem('LONG_BREAK_PERIOD')
+        ])
+        .then(([focus, short, long]) => {
+          setCurrentCircleTime(JSON.parse(focus || '25') * 60);
+          setCurrentShortBreakTime(JSON.parse(short || '5') * 60);
+          setCurrentLongBreakTime(JSON.parse(long || '15') * 60);
+  
+          setCounterCircleTime(JSON.parse(focus || '25') * 60);
+        })
+    }, [])
+  )
+
+  useEffect(() => {
+    if(isRunning && !isPaused){
+      const ref = setInterval(() => {
+          setCounterCircleTime(old => old <= 0 ? old : old - 1);
+      }, 1000);
+      return () => clearInterval(ref);
+    }
+  }, [isRunning, isPaused]);
+
+  useEffect(() => {    
+    switch (currentStatus) {
+      case 'focus': {
+          if (counterCircleTime > 0) break;
+
+          if (step < 4) {
+            setStep(old => (old + 1) as 1);
+            setCurrentStatus('shortBreak');
+            setCounterCircleTime(currentShortBreakTime);
+          } else {
+            setStep(1);
+            setCurrentStatus('longBreak');
+            setCounterCircleTime(currentLongBreakTime);
+          }
+      } 
+      break;
+      case 'longBreak':
+      case 'shortBreak': {
+        if(counterCircleTime <= 0){
+          setCurrentStatus('focus');
+          setCounterCircleTime(currentCircleTime);
+        }
+      }  
+      break;
+    } 
+  }, [counterCircleTime, currentStatus, step, currentShortBreakTime, currentLongBreakTime, currentCircleTime]);
+
+
+  const handleStart = () => {
+    setIsRunning(true);
+    setIsPaused(false);
+  }
+
+  const handlePause = () => {
+    setIsRunning(false);
+    setIsPaused(true);
+  }
+
+  const handleStop = () => {
+    setStep(1);
+    setIsRunning(false);
+    setIsPaused(false);
+    setCurrentStatus('focus');
+    setCounterCircleTime(currentCircleTime);
+  }
+
+  const timeProgress = useMemo(() => {
+    switch (currentStatus) {
+      case 'focus': return 100-((counterCircleTime / currentCircleTime) * 100);
+      case 'shortBreak': return 100-((counterCircleTime / currentShortBreakTime) * 100);
+      case 'longBreak': return 100-((counterCircleTime / currentLongBreakTime) * 100);
+      default: return 0;
+    }
+  }, [counterCircleTime, currentStatus, currentCircleTime, currentShortBreakTime, currentLongBreakTime]);
 
   return (
     <View style={styles.mainContainer}>
@@ -33,84 +127,103 @@ export const Home = () => {
           </View>
 
           <View style={styles.stateContainer}>
-              <Text style={styles.stateText}>
-                Vamos nos concentrar?
-              </Text>
-              {/* <Text style={styles.stateText}>
-                Hora de se concentrar
-              </Text>
-              <Text style={styles.stateText}>
-                Pausa curta
-              </Text>
-              <Text style={styles.stateText}>
-                Pausa longa
-              </Text>
-              <Text style={styles.stateText}>
-                Crônometro em pausa
-              </Text> */}
+              
+              {!isRunning && !isPaused && currentStatus === 'focus' && (
+                <Text style={styles.stateText}>
+                  Vamos nos concentrar?
+                </Text>
+              )}
+              {isRunning && !isPaused && currentStatus === 'focus' && (
+                <Text style={styles.stateText}>
+                  Hora de se concentrar
+                </Text>
+              )}
+              {isPaused && !isRunning && (
+                <Text style={styles.stateText}>
+                  Crônometro em pausa
+                </Text>
+              )}
+              
+              { currentStatus === 'shortBreak' && !isPaused && (
+                <Text style={styles.stateText}>
+                  Pausa curta
+                </Text>
+              )}
+              
+              { currentStatus === 'longBreak' && !isPaused && (
+                <Text style={styles.stateText}>
+                  Pausa longa
+                </Text>
+              )}
+              
           </View>
 
           <View style={styles.progressContainer}>
             <AnimatedCircularProgress
               size={160}
               width={7}
-              fill={70}
-              tintColor={Theme.colors.divider}
-              onAnimationComplete={() => console.log('onAnimationComplete')}
-              backgroundColor={Theme.colors.primary}
               rotation={0}
+              fill={timeProgress}
+              tintColor={Theme.colors.divider}
+              backgroundColor={Theme.colors.primary}
               children={() => (
                 <Text style={styles.progressText}>
-                  12:45
+                  {Math.floor(counterCircleTime / 60)}:{(counterCircleTime % 60).toString().padStart(2, '0')}
                 </Text>
               )}
             />
           </View>
         </View>
-
-        <View style={styles.buttonContainer}>  
-          <TouchableOpacity style={styles.primaryButton}>
+      
+        {!isRunning && !isPaused && (
+          <View style={styles.buttonContainer}>  
+            <TouchableOpacity style={styles.primaryButton} onPress={handleStart}>
+                <Text style={styles.primaryButtonText}>
+                  Iniciar
+                </Text>
+              </TouchableOpacity>
+          </View>
+        )}
+        
+        {isRunning && !isPaused && (
+          <View style={styles.buttonContainer}>    
+            <TouchableOpacity style={styles.primaryButton} onPress={handlePause}>
               <Text style={styles.primaryButtonText}>
-                Iniciar
+                Pausar
               </Text>
             </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleStop}>
+              <Text style={styles.secondaryButtonText}>
+                Parar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
         
-        {/* <View style={styles.buttonContainer}>    
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              Pausar
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>
-              Parar
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              Continuar
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>
-              Reiniciar
-            </Text>
-          </TouchableOpacity>
-        </View> */}
-
+        {isPaused && !isRunning &&(
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleStart}>
+              <Text style={styles.primaryButtonText}>
+                Continuar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleStop}>
+              <Text style={styles.secondaryButtonText}>
+                Parar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <View style={styles.pomodorosContainer}>
           <Text style={styles.pomodorosText}>
             Pomodoros:
           </Text>
 
-          <View style={styles.pomodorosIndicatorComplete} />
-          <View style={styles.pomodorosIndicator} />
-          <View style={styles.pomodorosIndicator} />
-          <View style={styles.pomodorosIndicator} />
+          <View style={step >= 2 || currentStatus === 'longBreak' ? styles.pomodorosIndicatorComplete : styles.pomodorosIndicator} />
+          <View style={step >= 3 || currentStatus === 'longBreak' ? styles.pomodorosIndicatorComplete : styles.pomodorosIndicator} />
+          <View style={step >= 4 || currentStatus === 'longBreak' ? styles.pomodorosIndicatorComplete : styles.pomodorosIndicator} />
+          <View style={currentStatus === 'longBreak' ? styles.pomodorosIndicatorComplete : styles.pomodorosIndicator} />
         </View>
 
       </View>

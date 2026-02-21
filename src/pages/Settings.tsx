@@ -1,13 +1,53 @@
-import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { TNavigationScreenProps } from '../AppRoutes';
 import { Theme } from '../shared/themes/Theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { use, useEffect, useState } from 'react';
 
 
 export const Settings = () => {
+  
   const navigation = useNavigation<TNavigationScreenProps>();
+
+  const [loaded, setLoaded] = useState(false);
+
+  const [focusPeriod, setFocusPeriod] = useState(25);
+  const [shortBreakPeriod, setShortBreakPeriod] = useState(5);
+  const [longBreakPeriod, setLongBreakPeriod] = useState(15);
+  const [notificationsActivated, setNotificationsActivated] = useState(true);
+
+  useEffect(() => {
+
+    Promise
+      .all([
+        AsyncStorage.getItem('FOCUS_PERIOD'),
+        AsyncStorage.getItem('SHORT_BREAK_PERIOD'),
+        AsyncStorage.getItem('LONG_BREAK_PERIOD'),
+        AsyncStorage.getItem('NOTIFICATION_ACTIVATED')  
+      ])
+      .then(([focus, short, long, notification]) => {
+        setFocusPeriod(JSON.parse(focus || '25'));
+        setShortBreakPeriod(JSON.parse(short || '5'));
+        setLongBreakPeriod(JSON.parse(long || '15'));
+        setNotificationsActivated(JSON.parse(notification || 'true'));
+      })
+      .catch(err => console.log(err))
+      .finally(() => setLoaded(true));
+
+  }, []);
+
+  useEffect(() => {
+
+    if(loaded){
+      AsyncStorage.setItem('FOCUS_PERIOD', JSON.stringify(focusPeriod));
+      AsyncStorage.setItem('SHORT_BREAK_PERIOD', JSON.stringify(shortBreakPeriod));
+      AsyncStorage.setItem('LONG_BREAK_PERIOD', JSON.stringify(longBreakPeriod));
+      AsyncStorage.setItem('NOTIFICATION_ACTIVATED', JSON.stringify(notificationsActivated));
+    }
+    
+  }, [focusPeriod, shortBreakPeriod, longBreakPeriod, notificationsActivated, loaded]);
 
   return (
     <View style={styles.mainContainer}>
@@ -38,17 +78,26 @@ export const Settings = () => {
             </Text>
             
             <View style={styles.formFieldButtons}>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={focusPeriod === 15 ? styles.primaryButton : styles.secondaryButton} 
+                onPress={() => setFocusPeriod(15)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   15 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton}>
+              <TouchableOpacity 
+                style={focusPeriod === 25 ? styles.primaryButton : styles.secondaryButton} 
+                onPress={() => setFocusPeriod(25)}
+              >
                 <Text style={styles.primaryButtonText}>
                   25 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={focusPeriod === 35 ? styles.primaryButton : styles.secondaryButton} 
+                onPress={() => setFocusPeriod(35)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   35 min
                 </Text>
@@ -67,17 +116,26 @@ export const Settings = () => {
             </Text>
             
             <View style={styles.formFieldButtons}>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={shortBreakPeriod === 3 ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setShortBreakPeriod(3)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   3 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton}>
+              <TouchableOpacity 
+                style={shortBreakPeriod === 5 ? styles.primaryButton : styles.secondaryButton} 
+                onPress={() => setShortBreakPeriod(5)}
+              >
                 <Text style={styles.primaryButtonText}>
                   5 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={shortBreakPeriod === 7 ? styles.primaryButton : styles.secondaryButton} 
+                onPress={() => setShortBreakPeriod(7)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   7 min
                 </Text>
@@ -96,17 +154,26 @@ export const Settings = () => {
             </Text>
             
             <View style={styles.formFieldButtons}>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={longBreakPeriod === 10 ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setLongBreakPeriod(10)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   10 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton}>
+              <TouchableOpacity 
+                style={longBreakPeriod === 15 ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setLongBreakPeriod(15)}
+              >
                 <Text style={styles.primaryButtonText}>
                   15 min
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={longBreakPeriod === 20 ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setLongBreakPeriod(20)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   20 min
                 </Text>
@@ -125,12 +192,18 @@ export const Settings = () => {
             </Text>
             
             <View style={styles.formFieldButtons}>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity 
+                style={!notificationsActivated ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setNotificationsActivated(false)}
+              >
                 <Text style={styles.secondaryButtonText}>
                   Desativado
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton}>
+              <TouchableOpacity 
+                style={notificationsActivated ? styles.primaryButton : styles.secondaryButton}
+                onPress={() => setNotificationsActivated(true)}
+              >
                 <Text style={styles.primaryButtonText}>
                   Ativado
                 </Text>
@@ -168,6 +241,8 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     backgroundColor: Theme.colors.primary,
+    minWidth: 95,
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 55
@@ -180,9 +255,9 @@ const styles = StyleSheet.create({
   },
 
   secondaryButton: {
-    borderColor: Theme.colors.divider,
     backgroundColor: Theme.colors.divider,
-    borderWidth: 2,
+    minWidth: 95,
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 55
