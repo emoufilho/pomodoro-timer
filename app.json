@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "pomodoro-timer",
+    "name": "Pomodoro Timer",
     "slug": "pomodoro-timer",
+    "description": "Utilizado para ajudar no gerenciamento do tempo através de ciclos pomodoros",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
