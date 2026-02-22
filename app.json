@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon-light.png",
@@ -18,7 +17,8 @@
         "light": "./assets/ios-light.png",
         "dark": "./assets/ios-dark.png",
         "tinted": "./assets/ios-tinted.png"
-      }
+      },
+      "bundleIdentifier": "com.edubamoura.pomodorotimer"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +45,7 @@
             "image": "./assets/splash-icon-dark.png"
           }
         }
-      ]  
+      ]
     ],
     "extra": {
       "eas": {
