@@ -5,8 +5,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { TNavigationScreenProps } from '../AppRoutes';
 import { Theme } from '../shared/themes/Theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { updateStateByElapsedTime } from '../shared/helper/UpdateStateByElapsedTime';
+import { NotificationService } from '../shared/services/NotificationService';
 
 
 export const Home = () => {
@@ -29,6 +30,7 @@ export const Home = () => {
   const [currentShortBreakTime, setCurrentShortBreakTime] = useState(5*60);
   const [currentLongBreakTime, setCurrentLongBreakTime] = useState(15*60);
   const [counterCircleTime, setCounterCircleTime] = useState(currentCircleTime);
+  const [notificationActivated, setNotificationActivated] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,12 +38,14 @@ export const Home = () => {
         .all([
           AsyncStorage.getItem('FOCUS_PERIOD'),
           AsyncStorage.getItem('SHORT_BREAK_PERIOD'),
-          AsyncStorage.getItem('LONG_BREAK_PERIOD')
+          AsyncStorage.getItem('LONG_BREAK_PERIOD'),
+          AsyncStorage.getItem('NOTIFICATION_ACTIVATED')
         ])
-        .then(([focus, short, long]) => {
+        .then(([focus, short, long, notification_activated]) => {
           setCurrentCircleTime(JSON.parse(focus || '25') * 60);
           setCurrentShortBreakTime(JSON.parse(short || '5') * 60);
           setCurrentLongBreakTime(JSON.parse(long || '15') * 60);
+          setNotificationActivated(JSON.parse(notification_activated || 'false'));
         })
     }, [])
   )
@@ -114,7 +118,26 @@ export const Home = () => {
 
   }, [appRunningState]);
 
-  const handleStart = () => {
+
+  useEffect(() => {
+    if(!notificationActivated){
+      NotificationService.deactivateNotification();
+      return;
+    }
+
+    if(appRunningState !== 'active' && isRunning && !isPaused){
+      NotificationService.activateNotification();
+    } else {
+      NotificationService.deactivateNotification();
+    }
+  }, [appRunningState, isRunning, isPaused, notificationActivated]);
+
+  useEffect(() => {
+    NotificationService.requestPermission();
+  }, [])
+
+
+  const handleStart = async () => {
     setIsRunning(true);
     setIsPaused(false);
 
@@ -129,6 +152,7 @@ export const Home = () => {
       currentLongBreakTime,
       currentShortBreakTime
     }));
+
   }
 
   const handlePause = () => {
